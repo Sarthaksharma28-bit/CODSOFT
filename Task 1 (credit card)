@@ -1,0 +1,103 @@
+import pandas as pd
+import numpy as np
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import roc_auc_score, mean_squared_error, mean_absolute_error
+from imblearn.over_sampling import SMOTE
+from imblearn.under_sampling import RandomUnderSampler
+from imblearn.pipeline import Pipeline
+
+# Load the dataset
+df = pd.read_csv('/creditcard.csv')
+
+# Check the first few rows and the column names
+print("Columns in the dataset:", df.columns)
+print(df.head())
+
+# Check for missing values and data types
+print("Missing values in each column:")
+print(df.isnull().sum())
+print("Data types of columns:")
+print(df.dtypes)
+
+# Handle missing values (if any)
+df.fillna(df.mean(), inplace=True)
+
+# Check for infinite values
+if np.any(np.isinf(df.values)):
+    raise ValueError("The dataset contains infinite values.")
+
+# Verify columns for scaling
+num_features = ['Amount', 'Time']
+print("Available columns for scaling:", df.columns)
+
+# Check if expected columns exist
+for feature in num_features:
+    if feature not in df.columns:
+        raise KeyError(f"Column '{feature}' is not present in the dataset.")
+
+# Scale/normalize numerical features
+scaler = MinMaxScaler()
+df[num_features] = scaler.fit_transform(df[num_features])
+print("Data after scaling:")
+print(df[num_features].head())
+
+# Split the dataset into features (X) and target (y)
+feature_data = df.drop('Class', axis=1)
+target_variable = df['Class']
+
+# Check dimensions of the data
+print("Features shape:", feature_data.shape)
+print("Target shape:", target_variable.shape)
+
+# Handle class imbalance using SMOTE and RandomUnderSampler
+smote = SMOTE(random_state=42)
+under_sampler = RandomUnderSampler(random_state=42)
+pipeline = Pipeline(steps=[('over', smote), ('under', under_sampler)])
+feature_data_res, target_variable_res = pipeline.fit_resample(feature_data, target_variable)
+
+# Check dimensions after resampling
+print("Resampled features shape:", feature_data_res.shape)
+print("Resampled target shape:", target_variable_res.shape)
+
+# Split the dataset into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(feature_data_res, target_variable_res, test_size=0.2, random_state=42)
+
+# Check dimensions of training and testing sets
+print("Training features shape:", X_train.shape)
+print("Testing features shape:", X_test.shape)
+
+# Train Logistic Regression model
+print("Training Logistic Regression model...")
+log_reg = LogisticRegression(random_state=42, max_iter=1000)  # Increased max_iter to ensure convergence
+log_reg.fit(X_train, y_train)
+print("Logistic Regression model trained.")
+
+# Train Random Forest model with reduced complexity
+print("Training Random Forest model...")
+rf = RandomForestClassifier(random_state=42, n_estimators=10, n_jobs=-1)  # Reduced n_estimators for quicker training
+rf.fit(X_train, y_train)
+print("Random Forest model trained.")
+
+# Evaluate the Logistic Regression model
+print("Evaluating Logistic Regression model...")
+y_pred_log_reg = log_reg.predict(X_test)
+print("Logistic Regression Model:")
+print("ROC-AUC:", roc_auc_score(y_test, y_pred_log_reg))
+print("Mean Squared Error:", mean_squared_error(y_test, y_pred_log_reg))
+print("Mean Absolute Error:", mean_absolute_error(y_test, y_pred_log_reg))
+
+# Evaluate the Random Forest model
+print("Evaluating Random Forest model...")
+y_pred_rf = rf.predict(X_test)
+print("\nRandom Forest Model:")
+print("Accuracy:", accuracy_score(y_test, y_pred_rf))
+print("Precision:", precision_score(y_test, y_pred_rf))
+print("Recall:", recall_score(y_test, y_pred_rf))
+print("F1-score:", f1_score(y_test, y_pred_rf))
+print("Classification Report:")
+print(classification_report(y_test, y_pred_rf))
+print("Confusion Matrix:")
+print(confusion_matrix(y_test, y_pred_rf))
