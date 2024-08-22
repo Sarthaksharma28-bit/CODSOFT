@@ -1,0 +1,97 @@
+# IMDb Movies India dataset analysis
+
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+import seaborn as sns
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.naive_bayes import GaussianNB
+from sklearn.metrics import mean_squared_error, r2_score
+import warnings
+warnings.filterwarnings('ignore')
+
+# Load the dataset
+data_path = "/content/IMDb Movies India.csv"
+film_data = pd.read_csv(data_path, encoding='latin1')
+
+# Display the first few rows of the dataset
+print(film_data.head())
+
+# Preprocess the data
+# Clean the 'Votes' column by removing non-numeric characters
+def parse_votes(value):
+    if isinstance(value, str):  # Check if the value is a string
+        value = value.replace(',', '').replace('$', '')
+        if 'M' in value:
+            value = float(value.replace('M', '')) * 1e6
+        return float(value)
+    return value  # Return the value as is if it's already numeric
+
+film_data['Votes'] = film_data['Votes'].apply(parse_votes)
+
+# Convert the 'Duration' column to numeric values
+film_data['Duration'] = film_data['Duration'].apply(lambda x: int(x.split()[0]) if pd.notnull(x) else np.nan)
+
+# Combine actors into one column, ensuring all values are strings
+film_data['Actors'] = film_data[['Actor 1', 'Actor 2', 'Actor 3']].astype(str).agg(' '.join, axis=1)
+
+# Selecting features and target
+predictor_variables = film_data[['Year', 'Duration', 'Votes']]
+response_variable = film_data['Rating']
+
+# Handle missing data
+predictor_variables.fillna(predictor_variables.mean(), inplace=True)
+response_variable.fillna(response_variable.mean(), inplace=True)  # Handle missing target values
+
+# Create train and test datasets
+training_predictors, testing_predictors, training_response, testing_response = train_test_split(predictor_variables, response_variable, test_size=0.33, random_state=42)
+
+# Initialize regression models
+lin_reg = LinearRegression()
+rf_reg = RandomForestRegressor(n_estimators=100, random_state=42)
+knn_reg = KNeighborsRegressor(n_neighbors=3)
+
+# Fit models
+lin_reg.fit(training_predictors, training_response)
+rf_reg.fit(training_predictors, training_response)
+knn_reg.fit(training_predictors, training_response)
+
+# Predict and evaluate
+def assess_performance(model, X_test, y_test):
+    predictions = model.predict(X_test)
+    mse = mean_squared_error(y_test, predictions)
+    r2 = r2_score(y_test, predictions)
+    return mse, r2
+
+mse_lin, r2_lin = assess_performance(lin_reg, testing_predictors, testing_response)
+mse_rf, r2_rf = assess_performance(rf_reg, testing_predictors, testing_response)
+mse_knn, r2_knn = assess_performance(knn_reg, testing_predictors, testing_response)
+
+# Print the evaluations
+print(f"Linear Regression MSE: {mse_lin:.2f}, R2: {r2_lin:.2f}")
+print(f"Random Forest MSE: {mse_rf:.2f}, R2: {r2_rf:.2f}")
+print(f"KNN MSE: {mse_knn:.2f}, R2: {r2_knn:.2f}")
+
+# Plotting rating distribution
+sns.histplot(film_data['Rating'], bins=20, kde=True, color='blue')
+plt.title('Distribution of Movie Ratings')
+plt.show()
+
+# Plotting Votes distribution
+sns.histplot(film_data['Votes'], bins=20, kde=True, color='green')
+plt.title('Distribution of Movie Votes')
+plt.show()
+
+# Scatter plot of Duration vs Rating
+plt.scatter(film_data['Duration'], film_data['Rating'], alpha=0.5)
+plt.title('Movie Duration vs Rating')
+plt.xlabel('Duration')
+plt.ylabel('Rating')
+plt.show()
+
+# Scatter plot of Votes vs Rating
+plt.scatter(film_data['Votes'], film_data['Rating'], alpha=0.5, color='red')
+plt
